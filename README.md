@@ -61,7 +61,7 @@ exif ~/Scans/2023-roll42/*.jpg
 
 Files that don't match the mask, or reference an unknown camera/lens code, are skipped with a warning and processing continues for the rest. A summary `N updated, M skipped` is printed at the end, and the exit code is non-zero if anything was skipped.
 
-`-overwrite_original` is always used (no `_original` backup is kept), matching the behavior of the earlier per-camera scripts.
+`-overwrite_original` is always used — no `_original` backup is kept.
 
 ## Camera and lens database (`exif-presets.json`)
 

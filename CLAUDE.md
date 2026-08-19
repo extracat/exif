@@ -12,21 +12,7 @@ user writes to you in. This is a standing instruction from the user, not a one-o
 
 A single zsh script, `exif`, that bulk-writes EXIF metadata onto scanned film frames
 based on information encoded in the **filename**, plus a camera/lens database in
-`exif-presets.json`. It replaces ~18 separate `exif-*` scripts that used to live in
-`~/bin/` — each one hardcoded a single camera(+lens) combination directly into an
-`exiftool` invocation. Those old scripts are **not deleted and not touched** — the user
-explicitly asked to leave them as-is, they're just no longer maintained.
-
-## Owner and environment
-
-- The user works on macOS, zsh shell; `exiftool` and `jq` are already installed system-wide.
-- `~/bin` is already on `$PATH`. The symlink `~/bin/exif -> ~/GIT/exif/exif` exists **on
-  the user's machine**, but not inside this repository — don't try to commit it.
-- GitHub: public repo `https://github.com/extracat/exif` (account `extracat`), branch
-  `main`. `gh` is already authenticated on this machine (HTTPS).
-- `~/_scan` is the user's working folder, where new scans following the filename mask
-  get dropped periodically for processing by this script. A real run has already been
-  verified there (36 files, 0 skipped).
+`exif-presets.json`.
 
 ## How the script works
 
@@ -60,9 +46,8 @@ explicitly asked to leave them as-is, they're just no longer maintained.
    `EXIF:UserComment` and nowhere else.
 5. **`nnn`** (frame number) is **never written to EXIF** — it's only used for filename
    readability and shows up in the log line (`frame NNN`).
-6. **`-overwrite_original` always** — no `_original` backup is kept. This matches how
-   the old scripts behaved; the user confirmed it and has already run it for real
-   against a live archive.
+6. **`-overwrite_original` always** — no `_original` backup is kept. Confirmed with the
+   user; don't add a backup mode unprompted.
 7. **Lens codes have no single unified naming scheme** — where there's no collision, the
    code is "focal length + aperture" (`35f2`, `85f2`, `20f28`, `50f14`,
    `jupiter135f35`); where there's a collision (two different 58mm f/2 lenses), the code
@@ -73,27 +58,25 @@ explicitly asked to leave them as-is, they're just no longer maintained.
    `${match[4]:l}`), so filename casing doesn't matter (`Seagull`, `FM3A`,
    `Jupiter135f35` all work), but the JSON keys themselves must be lowercase.
 9. **The one warning intentionally suppressed**:
-   `Warning: [minor] Maker notes could not be parsed`. The user's source scans carry a
-   corrupted/truncated Nikon MakerNotes block (a defect in the scanning software, not
-   our bug); whenever exiftool rewrites IFD0 it can't rebuild that block and warns on
-   every single file. It's filtered via `grep -vF` matching that exact string at the end
-   of the processing loop (`filteredErr=...`). Every other warning/error passes through
-   to the screen unchanged — don't widen this filter without an explicit request.
+   `Warning: [minor] Maker notes could not be parsed`. Some source scans carry a
+   corrupted/truncated Nikon MakerNotes block (a scanner-software defect, not our bug);
+   whenever exiftool rewrites IFD0 it can't rebuild that block and warns on every such
+   file. It's filtered via `grep -vF` matching that exact string at the end of the
+   processing loop (`filteredErr=...`). Every other warning/error passes through to the
+   screen unchanged — don't widen this filter without an explicit request.
 
 ## Preset format (`exif-presets.json`)
 
 - `cameras.<code>.type` — `"fixed"` (lens data is embedded in a `lens` object inside the
   camera) or `"interchangeable"` (lens is looked up in `.lenses[<lens_code>]`).
 - A key present on an object gets its tag written (even `""` deletes the tag via
-  `-TAG=`, matching how the original scripts handled unknown serial numbers). A missing
-  key leaves the tag untouched entirely. This deliberately mirrors the old scripts:
-  compacts (`capios20`) never had `EXIF:Lens`/`LensInfo`/`FocalLength`, while SLR lenses
-  did.
-- **A subtle quirk inherited from the original scripts, easy to forget when refactoring
-  the jq filter**: `XMP:Lens` = the `model` field's value (the specific name, e.g.
-  "Nikkor 35mm f/2 Ai-S"), **not** the `lens` field's value (the generic
-  "35.0 mm f/2.0" form — that one only goes into `EXIF:Lens`). Verified against real
-  files; do not "fix" this asymmetry.
+  `-TAG=`). A missing key leaves the tag untouched entirely — e.g. `capios20`'s `lens`
+  object has no `lens`/`info`/`focalLength`/`maxAperture`/`focalLengthIn35mm` keys, so
+  those tags are simply never touched for that camera.
+- **A subtle quirk, easy to forget when refactoring the jq filter**: `XMP:Lens` = the
+  `model` field's value (the specific name, e.g. "Nikkor 35mm f/2 Ai-S"), **not** the
+  `lens` field's value (the generic "35.0 mm f/2.0" form — that one only goes into
+  `EXIF:Lens`). Verified against real files; do not "fix" this asymmetry.
 
 ## How to test changes
 
@@ -105,12 +88,13 @@ explicitly asked to leave them as-is, they're just no longer maintained.
    work** (missing scan data after the SOS marker, exiftool reports "Corrupted JPEG
    image"). The working approach is
    `sips -s format jpeg -z W H /any/system/image --out test.jpg`.
-5. Before running against the user's real archive — **always** dry-run first (`-n`),
-   show the result to the user, and get confirmation before the real run (there are no
+5. Before running against the user's real files — **always** dry-run first (`-n`), show
+   the result to the user, and get confirmation before the real run (there are no
    backups; `-overwrite_original`).
 
 ## Git / GitHub
 
-- Committing and pushing to this project is fine — `gh` and the `git remote` are
-  already configured (`origin` → `https://github.com/extracat/exif.git`, HTTPS via the
-  `gh` credential helper). The repo is public — write sane commit messages, no secrets.
+- Remote: `origin` → `https://github.com/extracat/exif.git` (public repo, branch
+  `main`), pushed over HTTPS via the `gh` credential helper — already authenticated on
+  this machine, committing and pushing needs no extra setup. Write sane commit
+  messages; no secrets in this repo.
