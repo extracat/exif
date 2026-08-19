@@ -1,107 +1,116 @@
-# exif — заметки для себя (Claude)
+# exif — notes to self (Claude)
 
-Этот файл — не пользовательская документация (та в README.md), а контекст и решения,
-накопленные за время разработки, которые не восстановить простым чтением кода.
-Прочитай перед любой доработкой этого проекта.
+This file is not user-facing documentation (that's README.md) — it's the context and
+decisions accumulated during development that can't be recovered just by reading the
+code. Read it before making any changes to this project.
 
-## Суть проекта
+**Documentation language:** all docs in this repo (README.md, CLAUDE.md, code
+comments, commit messages) must be written in English, regardless of what language the
+user writes to you in. This is a standing instruction from the user, not a one-off.
 
-Единый zsh-скрипт `exif`, который массово проставляет EXIF-метаданные плёночным сканам
-на основе информации, зашитой в **имя файла**, плюс база камер/объективов в
-`exif-presets.json`. Заменяет собой ~18 отдельных скриптов `exif-*`, которые раньше
-лежали в `~/bin/` — каждый хардкодил одну связку камера(+объектив) прямо в вызов
-`exiftool`. Те старые скрипты **не удалены и не трогаются** — пользователь явно
-попросил оставить их как есть, они просто больше не сопровождаются.
+## What this project is
 
-## Владелец и окружение
+A single zsh script, `exif`, that bulk-writes EXIF metadata onto scanned film frames
+based on information encoded in the **filename**, plus a camera/lens database in
+`exif-presets.json`. It replaces ~18 separate `exif-*` scripts that used to live in
+`~/bin/` — each one hardcoded a single camera(+lens) combination directly into an
+`exiftool` invocation. Those old scripts are **not deleted and not touched** — the user
+explicitly asked to leave them as-is, they're just no longer maintained.
 
-- Пользователь работает на macOS, шелл zsh, `exiftool` и `jq` уже стоят в системе.
-- `~/bin` уже в `$PATH`. Симлинк `~/bin/exif -> ~/GIT/exif/exif` существует **на машине
-  пользователя**, но не в этом репозитории — не пытаться его коммитить.
-- GitHub: публичный репозиторий `https://github.com/extracat/exif` (аккаунт `extracat`),
-  ветка `main`. `gh` уже авторизован на этой машине через `gh auth login` (HTTPS).
-- `~/_scan` — рабочая папка пользователя, куда он периодически скидывает новые сканы
-  по маске имени файла для обработки этим скриптом. Реальный прогон уже проверен
-  (36 файлов, 0 skipped).
+## Owner and environment
 
-## Как устроен скрипт (`exif`)
+- The user works on macOS, zsh shell; `exiftool` and `jq` are already installed system-wide.
+- `~/bin` is already on `$PATH`. The symlink `~/bin/exif -> ~/GIT/exif/exif` exists **on
+  the user's machine**, but not inside this repository — don't try to commit it.
+- GitHub: public repo `https://github.com/extracat/exif` (account `extracat`), branch
+  `main`. `gh` is already authenticated on this machine (HTTPS).
+- `~/_scan` is the user's working folder, where new scans following the filename mask
+  get dropped periodically for processing by this script. A real run has already been
+  verified there (36 files, 0 skipped).
 
-- `SCRIPT_DIR="${0:A:h}"` — путь резолвится через реальное расположение файла (`:A`
-  разыменовывает симлинки), поэтому `exif-presets.json` находится независимо от того,
-  через какой симлинк или из какой рабочей директории была вызвана команда.
-- `FILENAME_RE` — POSIX ERE (zsh `=~`, **не** PCRE: нет `(?:...)`, но интервалы `{n}`
-  работают). Совпадения кладутся в `$match[1..9]`.
-- Сопоставление JSON-полей пресета с EXIF/XMP-тегами живёт в `JQ_FILTER` (функции
-  `cam_tags`/`lens_tags`), результат — TSV-строки `TAG<TAB>VALUE`, которые зачитываются
-  построчно и превращаются в элементы массива `args` (`-${tag}=${value}`), без ручного
-  экранирования — каждый элемент zsh-массива уже отдельный argv-токен для `exiftool`.
-- Ошибки поиска в пресетах (`CAMERA_NOT_FOUND` / `LENS_NOT_FOUND`) пробрасываются через
-  `error(...)` в jq и ловятся по exit-коду `jq` в zsh (**не** через `done < <(...)` —
-  так exit-код процесс-сабституции не поймать; используется прямая командная
-  подстановка `$(...)` + `$?` сразу после).
+## How the script works
 
-## Ключевые решения (согласованы с пользователем, не переоткрывать без явного запроса)
+- `SCRIPT_DIR="${0:A:h}"` — the path is resolved through the file's real location (`:A`
+  dereferences symlinks), so `exif-presets.json` is found no matter which symlink or
+  working directory the command was invoked from.
+- `FILENAME_RE` — POSIX ERE (zsh `=~`, **not** PCRE: no `(?:...)`, but `{n}` interval
+  quantifiers do work). Captures land in `$match[1..9]`.
+- The mapping from JSON preset fields to EXIF/XMP tags lives in `JQ_FILTER` (functions
+  `cam_tags`/`lens_tags`), which emits TSV lines `TAG<TAB>VALUE`. Those are read line by
+  line and turned into elements of the `args` array (`-${tag}=${value}`) with no manual
+  shell-escaping needed — each zsh array element is already a single argv token for
+  `exiftool`.
+- Preset lookup failures (`CAMERA_NOT_FOUND` / `LENS_NOT_FOUND`) are raised via
+  `error(...)` inside jq and caught in zsh via `jq`'s exit code (**not** via
+  `done < <(...)` — that loses the exit status of the process substitution; the current
+  code uses plain command substitution `$(...)` followed immediately by `$?`).
 
-1. **Поле `lens` в имени файла для fixed-объективов присутствует, но полностью
-   игнорируется скриптом** — осознанное решение пользователя ("пусть поле игнорируется,
-   хотя в файле оно будет присутствовать для удобства"). Валидацию не добавлять.
-2. **ISO**: `actualiso` (значение после `as`), если есть в имени файла, иначе `iso` →
-   `EXIF:ISO`. Если `actualiso != iso`, в `EXIF:UserComment` добавляется
-   `(rated ISO N)` — пометка push/pull проявки.
-3. **Дата**: `yyyymmdd` → `-AllDates="YYYY:MM:DD 00:00:00"`, **всегда перезаписывает**
-   то, что было в файле (обычно мусорная дата от сканера) — пользователь явно
-   продиктовал именно эту форму команды.
-4. **Плёнка** (`filmbrand` + `filmtitle` + `iso`) пишется как строка в
-   `EXIF:UserComment` и больше никуда.
-5. **`nnn`** (номер кадра) **не пишется в EXIF вообще**, используется только для
-   читаемости имени файла и в логе (`frame NNN`).
-6. **`-overwrite_original` всегда**, бэкапов `_original` не остаётся — так же вели
-   себя старые скрипты, пользователь подтвердил и уже гонял так реальный архив.
-7. **У кодов объективов нет единой схемы именования** — где нет коллизии, код это
-   "фокусное+диафрагма" (`35f2`, `85f2`, `20f28`, `50f14`, `jupiter135f35`), где
-   коллизия (два объектива 58mm f/2) — код с явным брендом (`helios44_2`, `haiou58f2`).
-   Это результат прямых правок пользователя — не унифицировать самовольно.
-8. **Ключи в `exif-presets.json` (`cameras`/`lenses`) хранятся в нижнем регистре.**
-   Скрипт лоуеркейсит `cam`/`lens` из имени файла перед поиском (`${match[3]:l}`,
-   `${match[4]:l}`), поэтому в самом имени файла регистр не важен (`Seagull`, `FM3A`,
-   `Jupiter135f35` — всё работает одинаково), но ключи в JSON обязаны быть lowercase.
-9. **Единственное целенаправленно подавляемое предупреждение**:
-   `Warning: [minor] Maker notes could not be parsed`. У исходных сканов пользователя
-   повреждён/усечён Nikon MakerNotes-блок (дефект софта сканирования, не наша вина);
-   при перезаписи IFD0 exiftool не может пересобрать этот блок и ругается на каждом
-   файле. Фильтруется через `grep -vF` по этой ровно строке в конце цикла обработки
-   (`filteredErr=...`). Все прочие warning/error проходят на экран без изменений —
-   не расширять этот фильтр без явного запроса.
+## Key decisions (agreed with the user — don't reopen without an explicit request)
 
-## Формат пресетов (`exif-presets.json`)
+1. **The `lens` field in the filename is present but fully ignored by the script for
+   fixed-lens cameras** — a deliberate call by the user ("let the field be ignored,
+   even though it stays in the filename for readability"). Don't add validation for it.
+2. **ISO**: `actualiso` (the value after `as`) if present in the filename, otherwise
+   `iso` → `EXIF:ISO`. When `actualiso != iso`, `(rated ISO N)` is appended to
+   `EXIF:UserComment` — a push/pull note.
+3. **Date**: `yyyymmdd` → `-AllDates="YYYY:MM:DD 00:00:00"`, **always overwrites**
+   whatever was already in the file (usually junk written by the scanner) — the user
+   explicitly dictated this exact command form.
+4. **Film stock** (`filmbrand` + `filmtitle` + `iso`) is written as a plain string into
+   `EXIF:UserComment` and nowhere else.
+5. **`nnn`** (frame number) is **never written to EXIF** — it's only used for filename
+   readability and shows up in the log line (`frame NNN`).
+6. **`-overwrite_original` always** — no `_original` backup is kept. This matches how
+   the old scripts behaved; the user confirmed it and has already run it for real
+   against a live archive.
+7. **Lens codes have no single unified naming scheme** — where there's no collision, the
+   code is "focal length + aperture" (`35f2`, `85f2`, `20f28`, `50f14`,
+   `jupiter135f35`); where there's a collision (two different 58mm f/2 lenses), the code
+   carries an explicit brand prefix (`helios44_2`, `haiou58f2`). This is the result of
+   the user's direct edits — don't unify it unprompted.
+8. **Keys in `exif-presets.json` (`cameras`/`lenses`) are stored lowercase.** The script
+   lowercases `cam`/`lens` from the filename before lookup (`${match[3]:l}`,
+   `${match[4]:l}`), so filename casing doesn't matter (`Seagull`, `FM3A`,
+   `Jupiter135f35` all work), but the JSON keys themselves must be lowercase.
+9. **The one warning intentionally suppressed**:
+   `Warning: [minor] Maker notes could not be parsed`. The user's source scans carry a
+   corrupted/truncated Nikon MakerNotes block (a defect in the scanning software, not
+   our bug); whenever exiftool rewrites IFD0 it can't rebuild that block and warns on
+   every single file. It's filtered via `grep -vF` matching that exact string at the end
+   of the processing loop (`filteredErr=...`). Every other warning/error passes through
+   to the screen unchanged — don't widen this filter without an explicit request.
 
-- `cameras.<код>.type` — `"fixed"` (объектив встроен в объект `lens` внутри камеры)
-  или `"interchangeable"` (объектив ищется в `.lenses[<код_объектива>]`).
-- Присутствующий ключ у объекта → тег пишется (даже `""` → тег удаляется через
-  `-TAG=`, как в оригинальных скриптах для неизвестных серийников). Отсутствующий
-  ключ → тег вообще не трогается. Это специально повторяет то, что было у старых
-  скриптов: например, у компактов не было `EXIF:Lens`/`LensInfo`/`FocalLength`
-  (`capios20`), а у SLR-объективов — было.
-- **Важная тонкость**, унаследованная от оригинальных скриптов и легко забываемая:
-  `XMP:Lens` = значение поля `model` (специфичное имя, напр. "Nikkor 35mm f/2 Ai-S"),
-  **а не** значение поля `lens` (общая форма "35.0 mm f/2.0" — та идёт только в
-  `EXIF:Lens`). Проверено на реальных файлах, не путать при рефакторинге jq-фильтра.
+## Preset format (`exif-presets.json`)
 
-## Как тестировать изменения
+- `cameras.<code>.type` — `"fixed"` (lens data is embedded in a `lens` object inside the
+  camera) or `"interchangeable"` (lens is looked up in `.lenses[<lens_code>]`).
+- A key present on an object gets its tag written (even `""` deletes the tag via
+  `-TAG=`, matching how the original scripts handled unknown serial numbers). A missing
+  key leaves the tag untouched entirely. This deliberately mirrors the old scripts:
+  compacts (`capios20`) never had `EXIF:Lens`/`LensInfo`/`FocalLength`, while SLR lenses
+  did.
+- **A subtle quirk inherited from the original scripts, easy to forget when refactoring
+  the jq filter**: `XMP:Lens` = the `model` field's value (the specific name, e.g.
+  "Nikkor 35mm f/2 Ai-S"), **not** the `lens` field's value (the generic
+  "35.0 mm f/2.0" form — that one only goes into `EXIF:Lens`). Verified against real
+  files; do not "fix" this asymmetry.
 
-1. `zsh -n exif` — проверка синтаксиса.
-2. `jq empty exif-presets.json` — проверка валидности JSON.
-3. `./exif -n FILE...` — dry-run, печатает собранную команду exiftool построчно,
-   ничего не меняет на диске.
-4. Для генерации валидного тестового JPEG: голый `printf` с JPEG-магией **не работает**
-   (не хватает данных после SOS-маркера, exiftool ругается "Corrupted JPEG image").
-   Рабочий способ — `sips -s format jpeg -z W H /любой/системный/файл --out test.jpg`.
-5. Перед прогоном на реальном архиве пользователя — **всегда** сначала `-n` (dry-run),
-   показать результат пользователю и спросить подтверждение перед реальным запуском
-   (бэкапов нет, `-overwrite_original`).
+## How to test changes
+
+1. `zsh -n exif` — syntax check.
+2. `jq empty exif-presets.json` — JSON validity check.
+3. `./exif -n FILE...` — dry-run, prints the assembled exiftool command per file,
+   changes nothing on disk.
+4. To generate a valid test JPEG: a bare `printf` with JPEG magic bytes **does not
+   work** (missing scan data after the SOS marker, exiftool reports "Corrupted JPEG
+   image"). The working approach is
+   `sips -s format jpeg -z W H /any/system/image --out test.jpg`.
+5. Before running against the user's real archive — **always** dry-run first (`-n`),
+   show the result to the user, and get confirmation before the real run (there are no
+   backups; `-overwrite_original`).
 
 ## Git / GitHub
 
-- Коммитить и пушить в этот проект можно, `gh` и `git remote` уже настроены
-  (`origin` → `https://github.com/extracat/exif.git`, HTTPS через `gh` credential
-  helper). Репозиторий публичный — писать вменяемые commit message, без секретов.
+- Committing and pushing to this project is fine — `gh` and the `git remote` are
+  already configured (`origin` → `https://github.com/extracat/exif.git`, HTTPS via the
+  `gh` credential helper). The repo is public — write sane commit messages, no secrets.

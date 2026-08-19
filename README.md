@@ -1,73 +1,73 @@
 # exif
 
-Массовая правка EXIF-метаданных у сканов плёночных кадров, управляемая **именем файла** и базой камер/объективов в JSON.
+Bulk EXIF metadata editor for scanned film frames, driven by the **filename** and a camera/lens database in JSON.
 
-Скрипт разбирает имя файла по фиксированной маске, находит подходящую камеру и объектив в `exif-presets.json` и одной командой `exiftool` проставляет Make/Model/серийники, данные объектива, дату, ISO и комментарий о плёнке — вместо ручного набора отдельных пресет-скриптов под каждую комбинацию камера+объектив.
+The script parses the filename against a fixed mask, looks up the matching camera and lens in `exif-presets.json`, and applies Make/Model/serial numbers, lens data, date, ISO, and a film comment with a single `exiftool` call — instead of maintaining a separate preset script for every camera+lens combination by hand.
 
-## Требования
+## Requirements
 
 - [`exiftool`](https://exiftool.org/)
 - [`jq`](https://stedolan.github.io/jq/)
 
-Оба должны быть в `PATH`. На macOS: `brew install exiftool jq`.
+Both must be on `PATH`. On macOS: `brew install exiftool jq`.
 
-## Установка
+## Install
 
 ```sh
 git clone https://github.com/extracat/exif.git ~/GIT/exif
-ln -s ~/GIT/exif/exif ~/bin/exif   # ~/bin должен быть в $PATH
+ln -s ~/GIT/exif/exif ~/bin/exif   # ~/bin must be on $PATH
 ```
 
-Скрипт сам находит `exif-presets.json` рядом со своим реальным расположением (симлинки разрешаются), так что путь установки `~/bin/exif` не важен — конфиг всегда ищется в `~/GIT/exif/`.
+The script locates `exif-presets.json` next to its own real location (symlinks are resolved), so the install path of `~/bin/exif` doesn't matter — the config is always found in `~/GIT/exif/`.
 
-## Маска имени файла
+## Filename mask
 
 ```
 yyyymmdd-nnn-cam-lens-filmbrand-filmtitle-iso[-asACTUALISO]
 ```
 
-Пример: `20230623-013-FM3A-35f2-Kodak-Ultramax-400-as200.jpg`
+Example: `20230623-013-FM3A-35f2-Kodak-Ultramax-400-as200.jpg`
 
-| Поле | Пример | Что делает |
+| Field | Example | What it does |
 |---|---|---|
-| `yyyymmdd` | `20230623` | Дата съёмки → `EXIF:AllDates` (`2023:06:23 00:00:00`), перезаписывает всё, что было в файле (обычно мусор от сканера) |
-| `nnn` | `013` | Номер кадра на плёнке — только для имени файла и лога, в EXIF не пишется |
-| `cam` | `FM3A` | Код камеры, ищется в `presets.cameras` (регистр не важен) |
-| `lens` | `35f2` | Код объектива. Для камер типа `interchangeable` ищется в `presets.lenses`. Для камер типа `fixed` это поле **игнорируется** скриптом — данные объектива берутся из пресета камеры, поле нужно только для читаемости имени файла |
-| `filmbrand` | `Kodak` | Вместе с `filmtitle` и `iso` пишутся в `EXIF:UserComment` (`"Kodak Ultramax 400"`) |
+| `yyyymmdd` | `20230623` | Shooting date → `EXIF:AllDates` (`2023:06:23 00:00:00`), overwrites whatever was already in the file (usually scanner junk) |
+| `nnn` | `013` | Frame number on the roll — filename/log readability only, never written to EXIF |
+| `cam` | `FM3A` | Camera code, looked up in `presets.cameras` (case-insensitive) |
+| `lens` | `35f2` | Lens code. For `interchangeable` cameras it's looked up in `presets.lenses`. For `fixed` cameras this field is **ignored** by the script — lens data comes from the camera's own preset, the field only exists for filename readability |
+| `filmbrand` | `Kodak` | Together with `filmtitle` and `iso`, written into `EXIF:UserComment` (`"Kodak Ultramax 400"`) |
 | `filmtitle` | `Ultramax` | — |
-| `iso` | `400` | Номинальная (коробочная) чувствительность плёнки |
-| `asACTUALISO` (опционально) | `as200` | Реальная чувствительность съёмки (push/pull) → `EXIF:ISO`. Если поля нет, в `EXIF:ISO` идёт номинальный `iso`. При push/pull в `UserComment` добавляется `(rated ISO N)` |
+| `iso` | `400` | Nominal (box) film speed |
+| `asACTUALISO` (optional) | `as200` | ISO the roll was actually shot at (push/pull) → `EXIF:ISO`. When absent, the nominal `iso` is used for `EXIF:ISO`. On push/pull, `(rated ISO N)` is appended to `UserComment` |
 
-Все поля разделяются дефисом — значения полей (`filmtitle`, коды камеры/объектива) не должны содержать дефис.
+All fields are separated by a hyphen — field values (`filmtitle`, camera/lens codes) must not contain a hyphen themselves.
 
-## Использование
+## Usage
 
 ```sh
-exif FILE...                     # обработать файлы
-exif -n FILE...                  # dry-run: показать команду exiftool, ничего не менять
-exif -v FILE...                  # показать команду exiftool при реальном запуске
-exif --list-cameras              # список известных камер
-exif --list-lenses               # список известных сменных объективов
-exif --presets /path/to.json ... # использовать другой файл пресетов
+exif FILE...                     # process files
+exif -n FILE...                  # dry-run: print the exiftool command, change nothing
+exif -v FILE...                  # print the exiftool command while actually running
+exif --list-cameras              # list known camera codes
+exif --list-lenses               # list known interchangeable lens codes
+exif --presets /path/to.json ... # use an alternate presets file
 exif --help
 ```
 
-Обычно используется с глобом:
+Typically used with a glob:
 
 ```sh
 exif ~/Scans/2023-roll42/*.jpg
 ```
 
-Файлы, не подходящие под маску, или с неизвестным кодом камеры/объектива — пропускаются с предупреждением, обработка остальных файлов продолжается. В конце выводится сводка `N updated, M skipped`, и если что-то было пропущено — код возврата ненулевой.
+Files that don't match the mask, or reference an unknown camera/lens code, are skipped with a warning and processing continues for the rest. A summary `N updated, M skipped` is printed at the end, and the exit code is non-zero if anything was skipped.
 
-Всегда используется `-overwrite_original` (без сохранения бэкапа `_original`), как и в предыдущей версии на отдельных скриптах.
+`-overwrite_original` is always used (no `_original` backup is kept), matching the behavior of the earlier per-camera scripts.
 
-## База камер и объективов (`exif-presets.json`)
+## Camera and lens database (`exif-presets.json`)
 
-### Камеры
+### Cameras
 
-| Код | Тип | Камера |
+| Code | Type | Camera |
 |---|---|---|
 | `fm3a` | interchangeable | Nikon FM3A |
 | `capios20` | fixed | Minolta Capios 20 |
@@ -76,9 +76,9 @@ exif ~/Scans/2023-roll42/*.jpg
 | `sokolautomat` | fixed | LOMO Sokol Automat |
 | `zenite` | interchangeable | Zenit E |
 
-### Сменные объективы
+### Interchangeable lenses
 
-| Код | Объектив |
+| Code | Lens |
 |---|---|
 | `20f28` | Nikkor 20mm f/2.8 Ai-S |
 | `35f2` | Nikkor 35mm f/2 Ai-S |
@@ -88,19 +88,19 @@ exif ~/Scans/2023-roll42/*.jpg
 | `helios44_2` | Helios-44-2 58mm f/2 |
 | `haiou58f2` | Haiou-64 58mm f/2 |
 
-### Формат пресета
+### Preset format
 
 ```jsonc
 "cameras": {
-  "код_камеры": {
-    "type": "interchangeable",   // или "fixed"
+  "camera_code": {
+    "type": "interchangeable",   // or "fixed"
     "make": "...", "model": "...", "serialNumber": "...",
     "exposureProgram": "...", "exposureMode": "...",
-    "lens": { ... }              // только для type: "fixed" — те же поля, что у объекта из "lenses"
+    "lens": { ... }              // only for type: "fixed" — same fields as a "lenses" entry
   }
 },
 "lenses": {
-  "код_объектива": {
+  "lens_code": {
     "make": "...", "serialNumber": "...",
     "lens": "35.0 mm f/2.0", "model": "...", "info": "35mm f/2",
     "focalLength": "35.0 mm", "maxAperture": "2.0", "focalLengthIn35mm": "35 mm"
@@ -108,7 +108,7 @@ exif ~/Scans/2023-roll42/*.jpg
 }
 ```
 
-Правила:
-- Присутствующий ключ — тег пишется. Значение `""` — тег удаляется (`-TAG=`). Отсутствующий ключ — тег не трогается вообще.
-- Чтобы добавить новую камеру или объектив, достаточно дописать запись в JSON — менять `exif` не нужно.
-- Коды камер и объективов должны быть уникальны в пределах своей таблицы (`cameras` / `lenses` соответственно) и не содержать дефис.
+Rules:
+- A key that's present gets its tag written. A value of `""` deletes the tag (`-TAG=`). A missing key leaves the tag untouched entirely.
+- To add a new camera or lens, just add an entry to the JSON — no need to touch `exif`.
+- Camera and lens codes must be unique within their own table (`cameras` / `lenses` respectively) and must not contain a hyphen.
