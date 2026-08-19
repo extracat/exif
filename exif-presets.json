@@ -1,0 +1,152 @@
+{
+  "_comment": "Presets for the `exif` script. Camera/lens codes are matched case-insensitively against the filename mask: yyyymmdd-nnn-cam-lens-filmbrand-filmtitle-iso[-asACTUALISO]. Any object key that is present (even as an empty string) is written to the file; a missing key is left untouched. An empty string value deletes that tag.",
+
+  "cameras": {
+    "fm3a": {
+      "type": "interchangeable",
+      "make": "NIKON CORPORATION",
+      "model": "NIKON FM3A",
+      "serialNumber": "203218",
+      "exposureProgram": "Aperture-priority AE",
+      "exposureMode": "Auto"
+    },
+    "capios20": {
+      "type": "fixed",
+      "make": "MINOLTA",
+      "model": "Minolta Capios 20",
+      "serialNumber": "",
+      "exposureProgram": "Program AE",
+      "exposureMode": "Auto",
+      "lens": {
+        "make": "MINOLTA",
+        "serialNumber": "",
+        "model": "Minolta Lens Zoom 35-70mm Macro"
+      }
+    },
+    "mjuii": {
+      "type": "fixed",
+      "make": "OLYMPUS CORPORATION",
+      "model": "Olympus mju II",
+      "serialNumber": "",
+      "exposureProgram": "Program AE",
+      "exposureMode": "Auto",
+      "lens": {
+        "make": "OLYMPUS CORPORATION",
+        "serialNumber": "",
+        "lens": "35.0 mm f/2.8",
+        "model": "Olympus Lens 35mm f/2.8",
+        "info": "35mm f/2.8",
+        "focalLength": "35.0 mm",
+        "maxAperture": "2.8",
+        "focalLengthIn35mm": "35 mm"
+      }
+    },
+    "haiou58": {
+      "type": "interchangeable",
+      "make": "Seagull",
+      "model": "Seagull DF-1",
+      "serialNumber": "",
+      "exposureProgram": "Manual",
+      "exposureMode": "Manual"
+    },
+    "sokolautomat": {
+      "type": "fixed",
+      "make": "LOMO",
+      "model": "Sokol Automat",
+      "serialNumber": "",
+      "exposureProgram": "Program AE",
+      "exposureMode": "Auto",
+      "lens": {
+        "make": "Industar",
+        "serialNumber": "",
+        "lens": "50.0 mm f/2.8",
+        "model": "Industar-70 50mm f/2.8",
+        "info": "50mm f/2.8",
+        "focalLength": "50.0 mm",
+        "maxAperture": "2.8",
+        "focalLengthIn35mm": "50 mm"
+      }
+    },
+    "zenite": {
+      "type": "interchangeable",
+      "make": "ZENIT",
+      "model": "Zenit E",
+      "serialNumber": "",
+      "exposureProgram": "Manual",
+      "exposureMode": "Manual"
+    }
+  },
+
+  "lenses": {
+    "20f28": {
+      "make": "NIKON CORPORATION",
+      "serialNumber": "300996",
+      "lens": "20.0 mm f/2.8",
+      "model": "Nikkor 20mm f/2.8 Ai-S",
+      "info": "20mm f/2.8",
+      "focalLength": "20.0 mm",
+      "maxAperture": "2.8",
+      "focalLengthIn35mm": "20 mm"
+    },
+    "35f2": {
+      "make": "NIKON CORPORATION",
+      "serialNumber": "262397",
+      "lens": "35.0 mm f/2.0",
+      "model": "Nikkor 35mm f/2 Ai-S",
+      "info": "35mm f/2",
+      "focalLength": "35.0 mm",
+      "maxAperture": "2.0",
+      "focalLengthIn35mm": "35 mm"
+    },
+    "50f14": {
+      "make": "NIKON CORPORATION",
+      "serialNumber": "5811195",
+      "lens": "50.0 mm f/1.4",
+      "model": "Nikkor 50mm f/1.4 Ai-S",
+      "info": "50mm f/1.4",
+      "focalLength": "50.0 mm",
+      "maxAperture": "1.4",
+      "focalLengthIn35mm": "50 mm"
+    },
+    "85f2": {
+      "make": "NIKON CORPORATION",
+      "serialNumber": "246629",
+      "lens": "85.0 mm f/2.0",
+      "model": "Nikkor 85mm f/2 Ai-S",
+      "info": "85mm f/2",
+      "focalLength": "85.0 mm",
+      "maxAperture": "2.0",
+      "focalLengthIn35mm": "85 mm"
+    },
+    "135f35": {
+      "make": "Kazan Optical-Mechanical Plant",
+      "serialNumber": "7934282",
+      "lens": "135.0 mm f/3.5",
+      "model": "Jupiter-37A 3.5/135",
+      "info": "135mm f/3.5",
+      "focalLength": "135.0 mm",
+      "maxAperture": "3.5",
+      "focalLengthIn35mm": "135 mm"
+    },
+    "helios58f2": {
+      "make": "Helios",
+      "serialNumber": "",
+      "lens": "58.0 mm f/2.0",
+      "model": "Helios-44-2 58mm f/2",
+      "info": "58mm f/2",
+      "focalLength": "58.0 mm",
+      "maxAperture": "2.0",
+      "focalLengthIn35mm": "58 mm"
+    },
+    "haiou58f2": {
+      "make": "Haiou",
+      "serialNumber": "",
+      "lens": "58.0 mm f/2.0",
+      "model": "Haiou-64 58mm f/2",
+      "info": "58mm f/2",
+      "focalLength": "58.0 mm",
+      "maxAperture": "2.0",
+      "focalLengthIn35mm": "58 mm"
+    }
+  }
+}

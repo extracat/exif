@@ -1,0 +1,170 @@
+#!/bin/zsh
+#
+# exif — bulk-fix EXIF metadata on scanned film photos, driven entirely by
+# filename + a JSON presets file (camera/lens database).
+#
+# Filename mask (fields separated by "-", extension ignored):
+#   yyyymmdd-nnn-cam-lens-filmbrand-filmtitle-iso[-asACTUALISO]
+#
+#   yyyymmdd    shooting date -> EXIF:AllDates="YYYY:MM:DD 00:00:00"
+#   nnn         frame number on the roll -> not written to EXIF, filename-only
+#   cam         camera code, looked up in presets.cameras (case-insensitive)
+#   lens        lens code; for "interchangeable" cameras looked up in
+#               presets.lenses, for "fixed" cameras it's cosmetic only —
+#               the lens data comes from the camera's own preset
+#   filmbrand   e.g. "Kodak"       \_ written verbatim into EXIF:UserComment
+#   filmtitle   e.g. "Ultramax"    /
+#   iso         nominal (box) film speed
+#   as<N>       optional: ISO actually shot at (push/pull) -> EXIF:ISO.
+#               When absent, iso itself is used for EXIF:ISO.
+#
+# Example: 20230623-013-FM3A-35f2-Kodak-Ultramax-400-as200.jpg
+#
+set -o pipefail
+
+SCRIPT_DIR="${0:A:h}"
+PRESETS="$SCRIPT_DIR/exif-presets.json"
+DRY_RUN=0
+VERBOSE=0
+typeset -a FILES
+
+FILENAME_RE='^([0-9]{8})-([0-9]+)-([A-Za-z0-9]+)-([A-Za-z0-9]+)-([A-Za-z]+)-([A-Za-z0-9]+)-([0-9]+)(-[aA][sS]([0-9]+))?$'
+
+usage() {
+  cat <<EOF
+Usage: exif [options] FILE...
+
+Options:
+  -n, --dry-run        Show the exiftool command for each file, change nothing
+  -v, --verbose         Print the exiftool command being run for each file
+  --presets FILE         Use an alternate presets JSON (default: $PRESETS)
+  --list-cameras         List known camera codes and exit
+  --list-lenses          List known interchangeable lens codes and exit
+  -h, --help             Show this help
+
+Filename mask:
+  yyyymmdd-nnn-cam-lens-filmbrand-filmtitle-iso[-asACTUALISO]
+  e.g. 20230623-013-FM3A-35f2-Kodak-Ultramax-400-as200.jpg
+EOF
+}
+
+fail() { print -u2 "exif: $1"; exit 1; }
+
+command -v exiftool >/dev/null 2>&1 || fail "exiftool not found in PATH"
+command -v jq >/dev/null 2>&1 || fail "jq not found in PATH"
+
+while (( $# )); do
+  case "$1" in
+    -n|--dry-run) DRY_RUN=1; shift ;;
+    -v|--verbose) VERBOSE=1; shift ;;
+    --presets) PRESETS="$2"; shift 2 ;;
+    --list-cameras)
+      { printf 'CODE\tTYPE\tMAKE / MODEL\n'
+        jq -r '.cameras | to_entries[] | "\(.key)\t\(.value.type)\t\(.value.make) \(.value.model)"' "$PRESETS"
+      } | column -t -s $'\t'
+      exit 0 ;;
+    --list-lenses)
+      { printf 'CODE\tMODEL\n'
+        jq -r '.lenses | to_entries[] | "\(.key)\t\(.value.model)"' "$PRESETS"
+      } | column -t -s $'\t'
+      exit 0 ;;
+    -h|--help) usage; exit 0 ;;
+    --) shift; FILES+=("$@"); break ;;
+    -*) fail "unknown option: $1 (see --help)" ;;
+    *) FILES+=("$1"); shift ;;
+  esac
+done
+
+[[ -f "$PRESETS" ]] || fail "presets file not found: $PRESETS"
+jq empty "$PRESETS" 2>/dev/null || fail "presets file is not valid JSON: $PRESETS"
+(( ${#FILES[@]} )) || { usage; exit 1; }
+
+JQ_FILTER='
+def lens_tags(L):
+  (if (L|has("make")) then [["EXIF:LensMake", L.make], ["XMP:LensManufacturer", L.make]] else [] end) +
+  (if (L|has("serialNumber")) then [["EXIF:LensSerialNumber", L.serialNumber]] else [] end) +
+  (if (L|has("lens")) then [["EXIF:Lens", L.lens]] else [] end) +
+  (if (L|has("model")) then [["EXIF:LensModel", L.model], ["XMP:Lens", L.model], ["XMP:LensModel", L.model]] else [] end) +
+  (if (L|has("info")) then [["EXIF:LensInfo", L.info]] else [] end) +
+  (if (L|has("focalLength")) then [["EXIF:FocalLength", L.focalLength]] else [] end) +
+  (if (L|has("maxAperture")) then [["EXIF:MaxApertureValue", L.maxAperture]] else [] end) +
+  (if (L|has("focalLengthIn35mm")) then [["EXIF:FocalLengthIn35mmFormat", L.focalLengthIn35mm]] else [] end);
+
+def cam_tags(C):
+  (if (C|has("make")) then [["EXIF:Make", C.make]] else [] end) +
+  (if (C|has("model")) then [["EXIF:Model", C.model]] else [] end) +
+  (if (C|has("serialNumber")) then [["EXIF:SerialNumber", C.serialNumber],["EXIF:CameraSerialNumber", C.serialNumber],["XMP:CameraSerialNumber", C.serialNumber]] else [] end) +
+  (if (C|has("exposureProgram")) then [["EXIF:ExposureProgram", C.exposureProgram]] else [] end) +
+  (if (C|has("exposureMode")) then [["EXIF:ExposureMode", C.exposureMode]] else [] end);
+
+.cameras[$cam] as $C
+| (if $C == null then error("CAMERA_NOT_FOUND") else $C end) as $C
+| (if $C.type == "fixed" then $C.lens
+   elif $C.type == "interchangeable" then (.lenses[$lens] // error("LENS_NOT_FOUND"))
+   else error("BAD_CAMERA_TYPE") end) as $L
+| (cam_tags($C) + lens_tags($L))[]
+| @tsv
+'
+
+typeset -i ok=0 skipped=0
+
+for f in "${FILES[@]}"; do
+  [[ -f "$f" ]] || { print -u2 "SKIP  $f  (not a file)"; ((skipped++)); continue }
+
+  base="${f:t:r}"   # filename without directory or extension
+  if [[ ! "$base" =~ $FILENAME_RE ]]; then
+    print -u2 "SKIP  $f  (does not match filename mask)"
+    ((skipped++)); continue
+  fi
+
+  date="$match[1]"; frame="$match[2]"
+  cam="${match[3]:l}"; lens="${match[4]:l}"
+  filmbrand="$match[5]"; filmtitle="$match[6]"
+  iso="$match[7]"; actualiso="$match[9]"
+  [[ -n "$actualiso" ]] || actualiso="$iso"
+
+  jqOut=$(jq -r --arg cam "$cam" --arg lens "$lens" "$JQ_FILTER" "$PRESETS" 2>&1)
+  if (( $? != 0 )); then
+    if [[ "$jqOut" == *CAMERA_NOT_FOUND* ]]; then
+      print -u2 "SKIP  $f  (unknown camera code: $cam)"
+    elif [[ "$jqOut" == *LENS_NOT_FOUND* ]]; then
+      print -u2 "SKIP  $f  (unknown lens code: $lens)"
+    else
+      print -u2 "SKIP  $f  (presets lookup failed: $jqOut)"
+    fi
+    ((skipped++)); continue
+  fi
+
+  typeset -a args
+  args=(-overwrite_original -photoshop:all= -DateCreated= -EXIF:Software= -XMP:HistorySoftwareAgent=)
+  for line in "${(@f)jqOut}"; do
+    [[ -n "$line" ]] || continue
+    args+=("-${line%%$'\t'*}=${line#*$'\t'}")
+  done
+
+  args+=("-AllDates=${date[1,4]}:${date[5,6]}:${date[7,8]} 00:00:00")
+  args+=("-EXIF:ISO=${actualiso}")
+
+  comment="$filmbrand $filmtitle $iso"
+  [[ "$actualiso" != "$iso" ]] && comment="$comment (rated ISO $actualiso)"
+  args+=("-EXIF:UserComment=${comment}")
+
+  if (( DRY_RUN )) || (( VERBOSE )); then
+    print "exiftool ${(qq)args} $f"
+  fi
+
+  if (( DRY_RUN )); then
+    ((ok++)); continue
+  fi
+
+  if exiftool "${args[@]}" "$f" >/dev/null; then
+    print "OK    $f  (frame $frame, cam=$cam, lens=$lens, ISO=$actualiso)"
+    ((ok++))
+  else
+    print -u2 "FAIL  $f  (exiftool error)"
+    ((skipped++))
+  fi
+done
+
+print "\n${ok} updated, ${skipped} skipped."
+(( skipped == 0 ))
