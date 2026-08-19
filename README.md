@@ -72,7 +72,7 @@ exif ~/Scans/2023-roll42/*.jpg
 | `fm3a` | interchangeable | Nikon FM3A |
 | `capios20` | fixed | Minolta Capios 20 |
 | `mjuii` | fixed | Olympus mju II |
-| `haiou58` | interchangeable | Seagull DF-1 |
+| `seagull` | interchangeable | Seagull DF-1 |
 | `sokolautomat` | fixed | LOMO Sokol Automat |
 | `zenite` | interchangeable | Zenit E |
 
@@ -84,8 +84,8 @@ exif ~/Scans/2023-roll42/*.jpg
 | `35f2` | Nikkor 35mm f/2 Ai-S |
 | `50f14` | Nikkor 50mm f/1.4 Ai-S |
 | `85f2` | Nikkor 85mm f/2 Ai-S |
-| `135f35` | Jupiter-37A 3.5/135 |
-| `helios58f2` | Helios-44-2 58mm f/2 |
+| `jupiter135f35` | Jupiter-37A 3.5/135 |
+| `helios44_2` | Helios-44-2 58mm f/2 |
 | `haiou58f2` | Haiou-64 58mm f/2 |
 
 ### Формат пресета

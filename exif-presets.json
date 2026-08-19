@@ -41,7 +41,7 @@
         "focalLengthIn35mm": "35 mm"
       }
     },
-    "haiou58": {
+    "seagull": {
       "type": "interchangeable",
       "make": "Seagull",
       "model": "Seagull DF-1",
@@ -118,7 +118,7 @@
       "maxAperture": "2.0",
       "focalLengthIn35mm": "85 mm"
     },
-    "135f35": {
+    "jupiter135f35": {
       "make": "Kazan Optical-Mechanical Plant",
       "serialNumber": "7934282",
       "lens": "135.0 mm f/3.5",
@@ -128,7 +128,7 @@
       "maxAperture": "3.5",
       "focalLengthIn35mm": "135 mm"
     },
-    "helios58f2": {
+    "helios44_2": {
       "make": "Helios",
       "serialNumber": "",
       "lens": "58.0 mm f/2.0",
