@@ -157,7 +157,15 @@ for f in "${FILES[@]}"; do
     ((ok++)); continue
   fi
 
-  if exiftool "${args[@]}" "$f" >/dev/null; then
+  exifErr=$(exiftool "${args[@]}" "$f" 2>&1 >/dev/null)
+  exifStatus=$?
+  # Some source scans carry a truncated Nikon MakerNotes block from the
+  # scanning software; exiftool has to rebuild it whenever IFD0 is
+  # rewritten and warns every time, harmlessly. Silence just that warning.
+  filteredErr=$(print -r -- "$exifErr" | grep -vF 'Warning: [minor] Maker notes could not be parsed')
+  [[ -n "$filteredErr" ]] && print -u2 -r -- "$filteredErr"
+
+  if (( exifStatus == 0 )); then
     print "OK    $f  (frame $frame, cam=$cam, lens=$lens, ISO=$actualiso)"
     ((ok++))
   else
