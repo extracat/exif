@@ -9,10 +9,13 @@
 #   yyyymmdd    shooting date -> EXIF:AllDates="YYYY:MM:DD 00:00:00"
 #   nnn         frame number on the roll -> not written to EXIF, filename-only
 #   cam         camera code, looked up in presets.cameras (case-insensitive)
-#   lens        lens code; required for "interchangeable" cameras, looked up
-#               in presets.lenses. Optional for "fixed" cameras — it's
-#               cosmetic only, the lens data comes from the camera's own
-#               preset, and the field may be omitted from the filename
+#   lens        lens code. Cameras are assumed fixed-lens by default (this is
+#               a tool for lomographers): for them the field is cosmetic only,
+#               may be omitted, and the lens data comes from the camera's own
+#               preset. Only for a camera marked type=interchangeable is the
+#               code looked up in presets.lenses — and even then the field may
+#               be omitted when the camera's preset carries a default lens
+#               (a filename code, when present, overrides that default)
 #   filmbrand   e.g. "Kodak"       \_ written verbatim into EXIF:UserComment
 #   filmtitle   e.g. "Ultramax"    /
 #   iso         nominal (box) film speed
@@ -47,7 +50,8 @@ Options:
 Filename mask:
   yyyymmdd-nnn-cam[-lens]-filmbrand-filmtitle-iso[-asACTUALISO]
   e.g. 20230623-013-FM3A-35f2-Kodak-Ultramax-400-as200.jpg
-  lens is required for interchangeable cameras, optional for fixed-lens ones
+  lens is only needed for interchangeable-lens cameras without a
+  default lens in their preset; fixed-lens cameras ignore it entirely
 EOF
 }
 
@@ -63,7 +67,7 @@ while (( $# )); do
     --presets) PRESETS="$2"; shift 2 ;;
     --list-cameras)
       { printf 'CODE\tTYPE\tMAKE / MODEL\n'
-        jq -r '.cameras | to_entries[] | "\(.key)\t\(.value.type)\t\(.value.make) \(.value.model)"' "$PRESETS"
+        jq -r '.cameras | to_entries[] | "\(.key)\t\(.value.type // "fixed")\t\(.value.make) \(.value.model)"' "$PRESETS"
       } | column -t -s $'\t'
       exit 0 ;;
     --list-lenses)
@@ -102,8 +106,10 @@ def cam_tags(C):
 
 .cameras[$cam] as $C
 | (if $C == null then error("CAMERA_NOT_FOUND") else $C end) as $C
-| (if $C.type == "fixed" then $C.lens
-   elif $C.type == "interchangeable" then (.lenses[$lens] // error("LENS_NOT_FOUND"))
+| (if ($C.type // "fixed") == "fixed" then ($C.lens // {})
+   elif $C.type == "interchangeable" then
+     (if $lens != "" then (.lenses[$lens] // error("LENS_NOT_FOUND"))
+      else ($C.lens // error("LENS_REQUIRED")) end)
    else error("BAD_CAMERA_TYPE") end) as $L
 | (cam_tags($C) + lens_tags($L))[]
 | @tsv
@@ -131,11 +137,9 @@ for f in "${FILES[@]}"; do
     if [[ "$jqOut" == *CAMERA_NOT_FOUND* ]]; then
       print -u2 "SKIP  $f  (unknown camera code: $cam)"
     elif [[ "$jqOut" == *LENS_NOT_FOUND* ]]; then
-      if [[ -z "$lens" ]]; then
-        print -u2 "SKIP  $f  (camera $cam is interchangeable, a lens code is required)"
-      else
-        print -u2 "SKIP  $f  (unknown lens code: $lens)"
-      fi
+      print -u2 "SKIP  $f  (unknown lens code: $lens)"
+    elif [[ "$jqOut" == *LENS_REQUIRED* ]]; then
+      print -u2 "SKIP  $f  (camera $cam is interchangeable with no default lens, a lens code is required)"
     else
       print -u2 "SKIP  $f  (presets lookup failed: $jqOut)"
     fi

@@ -35,7 +35,7 @@ Example, fixed-lens camera with the `lens` field omitted: `20230623-014-mjuii-Ko
 | `yyyymmdd` | `20230623` | Shooting date → `EXIF:AllDates` (`2023:06:23 00:00:00`), overwrites whatever was already in the file (usually scanner junk) |
 | `nnn` | `013` | Frame number on the roll — filename/log readability only, never written to EXIF |
 | `cam` | `FM3A` | Camera code, looked up in `presets.cameras` (case-insensitive) |
-| `lens` (optional for fixed cameras) | `35f2` | Lens code. For `interchangeable` cameras it's **required** and looked up in `presets.lenses`. For `fixed` cameras it's **ignored** by the script — lens data comes from the camera's own preset — and the field may be **omitted from the filename entirely** |
+| `lens` (optional) | `35f2` | Lens code. Cameras are assumed **fixed-lens by default** (this is a tool for lomographers): the field is then ignored and may be omitted entirely — lens data comes from the camera's own preset. Only for a camera marked `"type": "interchangeable"` is the code looked up in `presets.lenses`; even then it may be omitted if the camera's preset carries a default `lens` object (a code in the filename overrides that default) |
 | `filmbrand` | `Kodak` | Together with `filmtitle` and `iso`, written into `EXIF:UserComment` (`"Kodak Ultramax 400"`) |
 | `filmtitle` | `Ultramax` | — |
 | `iso` | `400` | Nominal (box) film speed |
@@ -96,10 +96,13 @@ Files that don't match the mask, or reference an unknown camera/lens code, are s
 ```jsonc
 "cameras": {
   "camera_code": {
-    "type": "interchangeable",   // or "fixed"
+    "type": "interchangeable",   // optional; when absent the camera is assumed "fixed"
     "make": "...", "model": "...", "serialNumber": "...",
     "exposureProgram": "...", "exposureMode": "...",
-    "lens": { ... }              // only for type: "fixed" — same fields as a "lenses" entry
+    "lens": { ... }              // same fields as a "lenses" entry. For a fixed camera:
+                                 // the camera's lens. For an interchangeable one: an
+                                 // optional default lens, used when the filename has no
+                                 // lens code (a code in the filename overrides it)
   }
 },
 "lenses": {

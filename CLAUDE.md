@@ -36,14 +36,20 @@ based on information encoded in the **filename**, plus a camera/lens database in
 
 ## Key decisions (agreed with the user — don't reopen without an explicit request)
 
-1. **The `lens` field in the filename is fully ignored by the script for fixed-lens
-   cameras**, and (as of 2026-08) **may be omitted from the filename entirely** for
-   those cameras — a deliberate call by the user: the field stays optional purely for
-   filename readability, not for validation. For `interchangeable` cameras the field is
-   still required — omitting it surfaces as `LENS_NOT_FOUND` (empty lookup key), which
-   the script reports with a dedicated "a lens code is required" message rather than
-   the generic "unknown lens code" one. Don't add stricter validation for the fixed-lens
-   case unprompted.
+1. **Cameras are fixed-lens by default; the filename lens field is the exception, not
+   the rule** (reframed 2026-08 at the user's request — the tool targets lomographers,
+   whose cameras are mostly point-and-shoots or single-lens setups). The resolution
+   order in `JQ_FILTER`:
+   - `type` missing or `"fixed"` → use the camera preset's own `lens` object (or no
+     lens tags at all if it has none); the filename lens field is ignored and optional.
+     Don't add validation for it.
+   - `type: "interchangeable"` + lens code in filename → look up in `.lenses`
+     (`LENS_NOT_FOUND` if unknown).
+   - `type: "interchangeable"` + no code in filename → fall back to the camera
+     preset's `lens` object as a default lens; if there is none either,
+     `LENS_REQUIRED` ("interchangeable with no default lens" skip message).
+   A filename code always **overrides** an interchangeable camera's default lens —
+   agreed with the user; for fixed cameras the field stays purely cosmetic.
 2. **ISO**: `actualiso` (the value after `as`) if present in the filename, otherwise
    `iso` → `EXIF:ISO`. When `actualiso != iso`, `(rated ISO N)` is appended to
    `EXIF:UserComment` — a push/pull note.
@@ -63,7 +69,7 @@ based on information encoded in the **filename**, plus a camera/lens database in
    the user's direct edits — don't unify it unprompted.
 8. **Keys in `exif-presets.json` (`cameras`/`lenses`) are stored lowercase.** The script
    lowercases `cam`/`lens` from the filename before lookup (`${match[3]:l}`,
-   `${match[4]:l}`), so filename casing doesn't matter (`Seagull`, `FM3A`,
+   `${match[5]:l}`), so filename casing doesn't matter (`Seagull`, `FM3A`,
    `Jupiter135f35` all work), but the JSON keys themselves must be lowercase.
 9. **The one warning intentionally suppressed**:
    `Warning: [minor] Maker notes could not be parsed`. Some source scans carry a
@@ -75,8 +81,11 @@ based on information encoded in the **filename**, plus a camera/lens database in
 
 ## Preset format (`exif-presets.json`)
 
-- `cameras.<code>.type` — `"fixed"` (lens data is embedded in a `lens` object inside the
-  camera) or `"interchangeable"` (lens is looked up in `.lenses[<lens_code>]`).
+- `cameras.<code>.type` — optional; missing means `"fixed"` (lens data is embedded in a
+  `lens` object inside the camera). `"interchangeable"` — lens is looked up in
+  `.lenses[<lens_code>]`, falling back to the camera's own `lens` object as a default
+  lens when the filename carries no lens code (see decision 1). The existing entries
+  keep an explicit `"type": "fixed"` — harmless, no need to strip it.
 - A key present on an object gets its tag written (even `""` deletes the tag via
   `-TAG=`). A missing key leaves the tag untouched entirely — e.g. `capios20`'s `lens`
   object has no `lens`/`info`/`focalLength`/`maxAperture`/`focalLengthIn35mm` keys, so
