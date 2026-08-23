@@ -85,6 +85,7 @@ jq empty "$PRESETS" 2>/dev/null || fail "presets file is not valid JSON: $PRESET
 # takes effect regardless of where it appears relative to --list-*.
 # Both flags together print both tables.
 if (( LIST_CAMERAS || LIST_LENSES )); then
+  (( ${#FILES[@]} == 0 )) || fail "FILE arguments cannot be combined with --list-cameras/--list-lenses"
   if (( LIST_CAMERAS )); then
     { printf 'CODE\tTYPE\tMAKE / MODEL\n'
       jq -r '.cameras | to_entries[] | "\(.key)\t\(.value.type // "fixed")\t\(.value.make) \(.value.model)"' "$PRESETS"
