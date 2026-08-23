@@ -65,7 +65,9 @@ while (( $# )); do
   case "$1" in
     -n|--dry-run) DRY_RUN=1; shift ;;
     -v|--verbose) VERBOSE=1; shift ;;
-    --presets) PRESETS="$2"; shift 2 ;;
+    --presets)
+      (( $# >= 2 )) || fail "--presets requires a file argument"
+      PRESETS="$2"; shift 2 ;;
     --list-cameras) LIST_MODE=cameras; shift ;;
     --list-lenses) LIST_MODE=lenses; shift ;;
     -h|--help) usage; exit 0 ;;
