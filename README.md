@@ -20,6 +20,16 @@ ln -s ~/GIT/exif/exif ~/bin/exif   # ~/bin must be on $PATH
 
 The script locates `exif-presets.json` next to its own real location (symlinks are resolved), so the install path of `~/bin/exif` doesn't matter — the config is always found in `~/GIT/exif/`.
 
+### Finder Quick Action (optional)
+
+A macOS Quick Action lives in `quick-action/` — it adds an **"EXIF from filename"** item to the Finder right-click menu (under Quick Actions / Services). Install:
+
+```sh
+cp -R "quick-action/EXIF from filename.workflow" ~/Library/Services/
+```
+
+Select files and/or folders in Finder and invoke it: folders are expanded to `.jpg`/`.jpeg` files recursively (case-insensitive), a confirmation dialog shows the file count (originals are overwritten in place), and a result dialog reports the summary plus any skipped files. The action expects the repo at `~/GIT/exif/` and looks for `exiftool`/`jq` in the Homebrew paths.
+
 ## Filename mask
 
 ```
