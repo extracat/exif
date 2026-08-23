@@ -31,6 +31,7 @@ SCRIPT_DIR="${0:A:h}"
 PRESETS="$SCRIPT_DIR/exif-presets.json"
 DRY_RUN=0
 VERBOSE=0
+LIST_MODE=""
 typeset -a FILES
 
 FILENAME_RE='^([0-9]{8})-([0-9]+)-([A-Za-z0-9_]+)(-([A-Za-z0-9_]+))?-([A-Za-z]+)-([A-Za-z0-9]+)-([0-9]+)(-[aA][sS]([0-9]+))?$'
@@ -65,16 +66,8 @@ while (( $# )); do
     -n|--dry-run) DRY_RUN=1; shift ;;
     -v|--verbose) VERBOSE=1; shift ;;
     --presets) PRESETS="$2"; shift 2 ;;
-    --list-cameras)
-      { printf 'CODE\tTYPE\tMAKE / MODEL\n'
-        jq -r '.cameras | to_entries[] | "\(.key)\t\(.value.type // "fixed")\t\(.value.make) \(.value.model)"' "$PRESETS"
-      } | column -t -s $'\t'
-      exit 0 ;;
-    --list-lenses)
-      { printf 'CODE\tMODEL\n'
-        jq -r '.lenses | to_entries[] | "\(.key)\t\(.value.model)"' "$PRESETS"
-      } | column -t -s $'\t'
-      exit 0 ;;
+    --list-cameras) LIST_MODE=cameras; shift ;;
+    --list-lenses) LIST_MODE=lenses; shift ;;
     -h|--help) usage; exit 0 ;;
     --) shift; FILES+=("$@"); break ;;
     -*) fail "unknown option: $1 (see --help)" ;;
@@ -84,6 +77,22 @@ done
 
 [[ -f "$PRESETS" ]] || fail "presets file not found: $PRESETS"
 jq empty "$PRESETS" 2>/dev/null || fail "presets file is not valid JSON: $PRESETS"
+
+# Listings run only after the whole command line is parsed, so --presets
+# takes effect regardless of where it appears relative to --list-*.
+case "$LIST_MODE" in
+  cameras)
+    { printf 'CODE\tTYPE\tMAKE / MODEL\n'
+      jq -r '.cameras | to_entries[] | "\(.key)\t\(.value.type // "fixed")\t\(.value.make) \(.value.model)"' "$PRESETS"
+    } | column -t -s $'\t'
+    exit 0 ;;
+  lenses)
+    { printf 'CODE\tMODEL\n'
+      jq -r '.lenses | to_entries[] | "\(.key)\t\(.value.model)"' "$PRESETS"
+    } | column -t -s $'\t'
+    exit 0 ;;
+esac
+
 (( ${#FILES[@]} )) || { usage; exit 1; }
 
 JQ_FILTER='
