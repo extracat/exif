@@ -6,8 +6,12 @@
 # Filename mask (fields separated by "-", extension ignored):
 #   yyyymmdd-nnn-cam[-lens]-filmbrand-filmtitle-iso[-asACTUALISO]
 #
-#   yyyymmdd    shooting date -> EXIF:AllDates="YYYY:MM:DD 00:00:00"
-#   nnn         frame number on the roll -> not written to EXIF, filename-only
+#   yyyymmdd    shooting date -> EXIF:AllDates="YYYY:MM:DD HH:MM:SS", where
+#               the time of day is noon + nnn seconds (see below)
+#   nnn         frame number on the roll -> sets the synthesized time of day
+#               (12:00:00 + nnn seconds), so apps sorting by capture time
+#               keep frames in roll order within a day; not written to EXIF
+#               as a number anywhere
 #   cam         camera code, looked up in presets.cameras (case-insensitive)
 #   lens        lens code. Cameras are assumed fixed-lens by default (this is
 #               a tool for lomographers): for them the field is cosmetic only,
@@ -169,7 +173,13 @@ for f in "${FILES[@]}"; do
     args+=("-${line%%$'\t'*}=${line#*$'\t'}")
   done
 
-  args+=("-AllDates=${date[1,4]}:${date[5,6]}:${date[7,8]} 00:00:00")
+  # Time of day is synthesized from the frame number (noon + nnn seconds) so
+  # that photo apps sorting by capture time keep the frames in roll order
+  # within a day. 10# forces decimal — "013" would otherwise risk octal.
+  typeset -i tsec=$(( 12 * 3600 + 10#$frame ))
+  (( tsec > 86399 )) && tsec=86399
+  timeofday=$(printf '%02d:%02d:%02d' $(( tsec / 3600 )) $(( tsec % 3600 / 60 )) $(( tsec % 60 )))
+  args+=("-AllDates=${date[1,4]}:${date[5,6]}:${date[7,8]} ${timeofday}")
   args+=("-EXIF:ISO=${actualiso}")
 
   comment="$filmbrand $filmtitle $iso"

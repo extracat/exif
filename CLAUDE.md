@@ -53,13 +53,18 @@ based on information encoded in the **filename**, plus a camera/lens database in
 2. **ISO**: `actualiso` (the value after `as`) if present in the filename, otherwise
    `iso` → `EXIF:ISO`. When `actualiso != iso`, `(rated ISO N)` is appended to
    `EXIF:UserComment` — a push/pull note.
-3. **Date**: `yyyymmdd` → `-AllDates="YYYY:MM:DD 00:00:00"`, **always overwrites**
-   whatever was already in the file (usually junk written by the scanner) — the user
-   explicitly dictated this exact command form.
+3. **Date**: `yyyymmdd` → `-AllDates="YYYY:MM:DD HH:MM:SS"`, **always overwrites**
+   whatever was already in the file (usually junk written by the scanner). The time of
+   day is synthesized (added 2026-08, user's request): noon + frame number in seconds
+   (frame 013 → `12:00:13`), clamped to `23:59:59`, so Apple Photos and the like sort
+   frames within a day in roll order. Noon as the base (not midnight) so timezone
+   shifts can't push the date to the previous day. `10#$frame` in the arithmetic is
+   deliberate — leading zeros would otherwise risk octal parsing.
 4. **Film stock** (`filmbrand` + `filmtitle` + `iso`) is written as a plain string into
    `EXIF:UserComment` and nowhere else.
-5. **`nnn`** (frame number) is **never written to EXIF** — it's only used for filename
-   readability and shows up in the log line (`frame NNN`).
+5. **`nnn`** (frame number) is **never written to EXIF as a number** — it shows up in
+   the log line (`frame NNN`) and, since 2026-08, drives the synthesized time of day
+   in `AllDates` (see decision 3). No dedicated frame-number tag is written.
 6. **`-overwrite_original` always** — no `_original` backup is kept. Confirmed with the
    user; don't add a backup mode unprompted.
 7. **Lens codes have no single unified naming scheme** — where there's no collision, the

@@ -42,8 +42,8 @@ Example, fixed-lens camera with the `lens` field omitted: `20230623-014-mjuii-Ko
 
 | Field | Example | What it does |
 |---|---|---|
-| `yyyymmdd` | `20230623` | Shooting date → `EXIF:AllDates` (`2023:06:23 00:00:00`), overwrites whatever was already in the file (usually scanner junk) |
-| `nnn` | `013` | Frame number on the roll — filename/log readability only, never written to EXIF |
+| `yyyymmdd` | `20230623` | Shooting date → `EXIF:AllDates`, overwrites whatever was already in the file (usually scanner junk). The time of day is synthesized from the frame number: noon + `nnn` seconds (`2023:06:23 12:00:13` for frame 013), so photo apps that sort by capture time keep frames in roll order within a day |
+| `nnn` | `013` | Frame number on the roll — sets the synthesized time of day (see above); never written to EXIF as a number |
 | `cam` | `FM3A` | Camera code, looked up in `presets.cameras` (case-insensitive) |
 | `lens` (optional) | `35f2` | Lens code. Cameras are assumed **fixed-lens by default** (this is a tool for lomographers): the field is then ignored and may be omitted entirely — lens data comes from the camera's own preset. Only for a camera marked `"type": "interchangeable"` is the code looked up in `presets.lenses`; even then it may be omitted if the camera's preset carries a default `lens` object (a code in the filename overrides that default) |
 | `filmbrand` | `Kodak` | Together with `filmtitle` and `iso`, written into `EXIF:UserComment` (`"Kodak Ultramax 400"`) |
