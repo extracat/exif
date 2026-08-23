@@ -74,6 +74,7 @@ Files that don't match the mask, or reference an unknown camera/lens code, are s
 | `mjuii` | fixed | Olympus mju II |
 | `seagull` | interchangeable | Seagull DF-1 |
 | `sokolautomat` | fixed | LOMO Sokol Automat |
+| `vilia` | fixed | BelOMO Vilia |
 | `zenite` | interchangeable | Zenit E |
 
 ### Interchangeable lenses

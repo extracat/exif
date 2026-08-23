@@ -67,6 +67,24 @@
         "focalLengthIn35mm": "50 mm"
       }
     },
+    "vilia": {
+      "type": "fixed",
+      "make": "BelOMO",
+      "model": "Vilia",
+      "serialNumber": "",
+      "exposureProgram": "Manual",
+      "exposureMode": "Manual",
+      "lens": {
+        "make": "BelOMO",
+        "serialNumber": "",
+        "lens": "40.0 mm f/4",
+        "model": "Triplet 69-3 4/40",
+        "info": "40mm f/4",
+        "focalLength": "40.0 mm",
+        "maxAperture": "4.0",
+        "focalLengthIn35mm": "40 mm"
+      }
+    },
     "zenite": {
       "type": "interchangeable",
       "make": "ZENIT",
