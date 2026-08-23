@@ -4,14 +4,15 @@
 # filename + a JSON presets file (camera/lens database).
 #
 # Filename mask (fields separated by "-", extension ignored):
-#   yyyymmdd-nnn-cam-lens-filmbrand-filmtitle-iso[-asACTUALISO]
+#   yyyymmdd-nnn-cam[-lens]-filmbrand-filmtitle-iso[-asACTUALISO]
 #
 #   yyyymmdd    shooting date -> EXIF:AllDates="YYYY:MM:DD 00:00:00"
 #   nnn         frame number on the roll -> not written to EXIF, filename-only
 #   cam         camera code, looked up in presets.cameras (case-insensitive)
-#   lens        lens code; for "interchangeable" cameras looked up in
-#               presets.lenses, for "fixed" cameras it's cosmetic only —
-#               the lens data comes from the camera's own preset
+#   lens        lens code; required for "interchangeable" cameras, looked up
+#               in presets.lenses. Optional for "fixed" cameras — it's
+#               cosmetic only, the lens data comes from the camera's own
+#               preset, and the field may be omitted from the filename
 #   filmbrand   e.g. "Kodak"       \_ written verbatim into EXIF:UserComment
 #   filmtitle   e.g. "Ultramax"    /
 #   iso         nominal (box) film speed
@@ -19,6 +20,7 @@
 #               When absent, iso itself is used for EXIF:ISO.
 #
 # Example: 20230623-013-FM3A-35f2-Kodak-Ultramax-400-as200.jpg
+# Example (fixed-lens camera, lens field omitted): 20230623-013-mjuii-Kodak-Ultramax-400.jpg
 #
 set -o pipefail
 
@@ -28,7 +30,7 @@ DRY_RUN=0
 VERBOSE=0
 typeset -a FILES
 
-FILENAME_RE='^([0-9]{8})-([0-9]+)-([A-Za-z0-9_]+)-([A-Za-z0-9_]+)-([A-Za-z]+)-([A-Za-z0-9]+)-([0-9]+)(-[aA][sS]([0-9]+))?$'
+FILENAME_RE='^([0-9]{8})-([0-9]+)-([A-Za-z0-9_]+)(-([A-Za-z0-9_]+))?-([A-Za-z]+)-([A-Za-z0-9]+)-([0-9]+)(-[aA][sS]([0-9]+))?$'
 
 usage() {
   cat <<EOF
@@ -43,8 +45,9 @@ Options:
   -h, --help             Show this help
 
 Filename mask:
-  yyyymmdd-nnn-cam-lens-filmbrand-filmtitle-iso[-asACTUALISO]
+  yyyymmdd-nnn-cam[-lens]-filmbrand-filmtitle-iso[-asACTUALISO]
   e.g. 20230623-013-FM3A-35f2-Kodak-Ultramax-400-as200.jpg
+  lens is required for interchangeable cameras, optional for fixed-lens ones
 EOF
 }
 
@@ -118,9 +121,9 @@ for f in "${FILES[@]}"; do
   fi
 
   date="$match[1]"; frame="$match[2]"
-  cam="${match[3]:l}"; lens="${match[4]:l}"
-  filmbrand="$match[5]"; filmtitle="$match[6]"
-  iso="$match[7]"; actualiso="$match[9]"
+  cam="${match[3]:l}"; lens="${match[5]:l}"
+  filmbrand="$match[6]"; filmtitle="$match[7]"
+  iso="$match[8]"; actualiso="$match[10]"
   [[ -n "$actualiso" ]] || actualiso="$iso"
 
   jqOut=$(jq -r --arg cam "$cam" --arg lens "$lens" "$JQ_FILTER" "$PRESETS" 2>&1)
@@ -128,7 +131,11 @@ for f in "${FILES[@]}"; do
     if [[ "$jqOut" == *CAMERA_NOT_FOUND* ]]; then
       print -u2 "SKIP  $f  (unknown camera code: $cam)"
     elif [[ "$jqOut" == *LENS_NOT_FOUND* ]]; then
-      print -u2 "SKIP  $f  (unknown lens code: $lens)"
+      if [[ -z "$lens" ]]; then
+        print -u2 "SKIP  $f  (camera $cam is interchangeable, a lens code is required)"
+      else
+        print -u2 "SKIP  $f  (unknown lens code: $lens)"
+      fi
     else
       print -u2 "SKIP  $f  (presets lookup failed: $jqOut)"
     fi

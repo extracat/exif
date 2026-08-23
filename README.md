@@ -23,17 +23,19 @@ The script locates `exif-presets.json` next to its own real location (symlinks a
 ## Filename mask
 
 ```
-yyyymmdd-nnn-cam-lens-filmbrand-filmtitle-iso[-asACTUALISO]
+yyyymmdd-nnn-cam[-lens]-filmbrand-filmtitle-iso[-asACTUALISO]
 ```
 
 Example: `20230623-013-FM3A-35f2-Kodak-Ultramax-400-as200.jpg`
+
+Example, fixed-lens camera with the `lens` field omitted: `20230623-014-mjuii-Kodak-Ultramax-400.jpg`
 
 | Field | Example | What it does |
 |---|---|---|
 | `yyyymmdd` | `20230623` | Shooting date → `EXIF:AllDates` (`2023:06:23 00:00:00`), overwrites whatever was already in the file (usually scanner junk) |
 | `nnn` | `013` | Frame number on the roll — filename/log readability only, never written to EXIF |
 | `cam` | `FM3A` | Camera code, looked up in `presets.cameras` (case-insensitive) |
-| `lens` | `35f2` | Lens code. For `interchangeable` cameras it's looked up in `presets.lenses`. For `fixed` cameras this field is **ignored** by the script — lens data comes from the camera's own preset, the field only exists for filename readability |
+| `lens` (optional for fixed cameras) | `35f2` | Lens code. For `interchangeable` cameras it's **required** and looked up in `presets.lenses`. For `fixed` cameras it's **ignored** by the script — lens data comes from the camera's own preset — and the field may be **omitted from the filename entirely** |
 | `filmbrand` | `Kodak` | Together with `filmtitle` and `iso`, written into `EXIF:UserComment` (`"Kodak Ultramax 400"`) |
 | `filmtitle` | `Ultramax` | — |
 | `iso` | `400` | Nominal (box) film speed |

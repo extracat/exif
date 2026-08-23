@@ -20,7 +20,10 @@ based on information encoded in the **filename**, plus a camera/lens database in
   dereferences symlinks), so `exif-presets.json` is found no matter which symlink or
   working directory the command was invoked from.
 - `FILENAME_RE` — POSIX ERE (zsh `=~`, **not** PCRE: no `(?:...)`, but `{n}` interval
-  quantifiers do work). Captures land in `$match[1..9]`.
+  quantifiers do work). Captures land in `$match[1..10]`. The `-lens` segment is
+  wrapped in its own optional group (`(-([A-Za-z0-9_]+))?`), which shifts the lens
+  capture to `$match[5]` and pushes filmbrand/filmtitle/iso/actualiso to
+  `$match[6..8]`/`$match[10]` — don't forget this offset if the regex is touched again.
 - The mapping from JSON preset fields to EXIF/XMP tags lives in `JQ_FILTER` (functions
   `cam_tags`/`lens_tags`), which emits TSV lines `TAG<TAB>VALUE`. Those are read line by
   line and turned into elements of the `args` array (`-${tag}=${value}`) with no manual
@@ -33,9 +36,14 @@ based on information encoded in the **filename**, plus a camera/lens database in
 
 ## Key decisions (agreed with the user — don't reopen without an explicit request)
 
-1. **The `lens` field in the filename is present but fully ignored by the script for
-   fixed-lens cameras** — a deliberate call by the user ("let the field be ignored,
-   even though it stays in the filename for readability"). Don't add validation for it.
+1. **The `lens` field in the filename is fully ignored by the script for fixed-lens
+   cameras**, and (as of 2026-08) **may be omitted from the filename entirely** for
+   those cameras — a deliberate call by the user: the field stays optional purely for
+   filename readability, not for validation. For `interchangeable` cameras the field is
+   still required — omitting it surfaces as `LENS_NOT_FOUND` (empty lookup key), which
+   the script reports with a dedicated "a lens code is required" message rather than
+   the generic "unknown lens code" one. Don't add stricter validation for the fixed-lens
+   case unprompted.
 2. **ISO**: `actualiso` (the value after `as`) if present in the filename, otherwise
    `iso` → `EXIF:ISO`. When `actualiso != iso`, `(rated ISO N)` is appended to
    `EXIF:UserComment` — a push/pull note.
