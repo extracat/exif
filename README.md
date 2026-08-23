@@ -55,6 +55,8 @@ exif --presets /path/to.json ... # use an alternate presets file
 exif --help
 ```
 
+The two `--list-*` flags can be combined to print both tables, and `--presets` takes effect wherever it appears on the command line. Listing flags cannot be mixed with FILE arguments — that's an error, not a silent ignore.
+
 Typically used with a glob:
 
 ```sh
