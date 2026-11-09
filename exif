@@ -187,7 +187,7 @@ for f in "${FILES[@]}"; do
   args+=("-EXIF:UserComment=${comment}")
 
   if (( DRY_RUN )) || (( VERBOSE )); then
-    print "exiftool ${(qq)args} $f"
+    print -r -- "exiftool ${(@qq)args} ${(qq)f}"
   fi
 
   if (( DRY_RUN )); then
