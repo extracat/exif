@@ -64,7 +64,14 @@ based on information encoded in the **filename**, plus a camera/lens database in
    `EXIF:UserComment` and nowhere else.
 5. **`nnn`** (frame number) is **never written to EXIF as a number** — it shows up in
    the log line (`frame NNN`) and, since 2026-08, drives the synthesized time of day
-   in `AllDates` (see decision 3). No dedicated frame-number tag is written.
+   in `AllDates` (see decision 3). No dedicated frame-number tag is written. Since
+   2026-11 the field may carry a Latin-letter suffix (`001a`, `001b`) — the user marks
+   different takes of the same frame that way. The suffix is **cosmetic only**: the
+   regex is `[0-9]+[A-Za-z]*` (must start with a digit), and the time-of-day
+   arithmetic strips it (`${frame%%[A-Za-z]*}`), so `001`, `001a`, `001b` all get the
+   same timestamp. Agreed with the user — those takes rarely end up in Apple Photos
+   together, so ordering between them isn't needed; don't add sub-second or
+   minute-based ordering unprompted.
 6. **`-overwrite_original` always** — no `_original` backup is kept. Confirmed with the
    user; don't add a backup mode unprompted.
 7. **Lens codes have no single unified naming scheme** — where there's no collision, the

@@ -11,7 +11,9 @@
 #   nnn         frame number on the roll -> sets the synthesized time of day
 #               (12:00:00 + nnn seconds), so apps sorting by capture time
 #               keep frames in roll order within a day; not written to EXIF
-#               as a number anywhere
+#               as a number anywhere. Digits, optionally followed by Latin
+#               letters marking takes of the same frame (001a, 001b): the
+#               letters are cosmetic — only the leading digits set the time
 #   cam         camera code, looked up in presets.cameras (case-insensitive)
 #   lens        lens code. Cameras are assumed fixed-lens by default (this is
 #               a tool for lomographers): for them the field is cosmetic only,
@@ -39,7 +41,7 @@ LIST_CAMERAS=0
 LIST_LENSES=0
 typeset -a FILES
 
-FILENAME_RE='^([0-9]{8})-([0-9]+)-([A-Za-z0-9_]+)(-([A-Za-z0-9_]+))?-([A-Za-z]+)-([A-Za-z0-9]+)-([0-9]+)(-[aA][sS]([0-9]+))?$'
+FILENAME_RE='^([0-9]{8})-([0-9]+[A-Za-z]*)-([A-Za-z0-9_]+)(-([A-Za-z0-9_]+))?-([A-Za-z]+)-([A-Za-z0-9]+)-([0-9]+)(-[aA][sS]([0-9]+))?$'
 
 usage() {
   cat <<EOF
@@ -175,8 +177,10 @@ for f in "${FILES[@]}"; do
 
   # Time of day is synthesized from the frame number (noon + nnn seconds) so
   # that photo apps sorting by capture time keep the frames in roll order
-  # within a day. 10# forces decimal — "013" would otherwise risk octal.
-  typeset -i tsec=$(( 12 * 3600 + 10#$frame ))
+  # within a day. Only the leading digits count — a letter suffix (001a) marks
+  # a take of the same frame and is ignored here. 10# forces decimal — "013"
+  # would otherwise risk octal.
+  typeset -i tsec=$(( 12 * 3600 + 10#${frame%%[A-Za-z]*} ))
   (( tsec > 86399 )) && tsec=86399
   timeofday=$(printf '%02d:%02d:%02d' $(( tsec / 3600 )) $(( tsec % 3600 / 60 )) $(( tsec % 60 )))
   args+=("-AllDates=${date[1,4]}:${date[5,6]}:${date[7,8]} ${timeofday}")
