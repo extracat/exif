@@ -123,7 +123,8 @@ based on information encoded in the **filename**, plus a camera/lens database in
 
 ## Git / GitHub
 
-- Remote: `origin` → `git@github.com:extracat/exif.git` (public repo, branch
-  `main`), pushed over SSH — the key is already set up on this machine, committing and
-  pushing needs no extra setup. Write sane commit
-  messages; no secrets in this repo.
+- Remote: `origin` → `git@github-personal:extracat/exif.git` (public repo, branch
+  `main`), pushed over SSH via the `github-personal` host alias (personal key) — never
+  plain `git@github.com:` or HTTPS, which would pick the wrong account on this
+  machine. Committing and pushing needs no extra setup. Write sane commit messages; no
+  secrets in this repo.
